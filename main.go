@@ -1,5 +1,7 @@
 package main
 
+// #include "eBPF-for-Windows.0.4.0/build/native/include/ebpf_api.h"
+import "C"
 import (
 	"flag"
 	"fmt"
@@ -23,7 +25,29 @@ func main() {
 	}
 	re := regexp.MustCompile(`\d+`)
 	id := re.FindAllString(string(out), -1)
-	fmt.Printf("id: %s", id)
+	fmt.Printf("id: %s\n", id)
+
+	v := getProgramFD()
+	fmt.Printf("program: %d\n", v)
+
+	o := getbpfobject()
+	fmt.Printf("object: %s\n", o)
+
+	m := getmap(o)
+	fmt.Printf("map: %s\n", m)
+
+	mapFd := getmapFD(m)
+	fmt.Printf("map id: %d\n", mapFd)
+
+	mapfd2 := getmapFDBybpfObject(o)
+	fmt.Printf("map id2: %d\n", mapfd2)
+
+	name := getMapName(m)
+	fmt.Printf("map name: %s\n", name)
+
+	ip := newIP()
+	mapupdate := updateMap(mapFd, &ip, &ip, 0)
+	fmt.Printf("updatemap: %d", mapupdate)
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)

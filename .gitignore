@@ -1,2 +1,4 @@
 /eBPF-for-Windows.0.4.0
 /.vscode
+*.exe
+/sal.h

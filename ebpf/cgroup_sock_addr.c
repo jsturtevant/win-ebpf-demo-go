@@ -26,22 +26,22 @@ __inline int
 authorize_v4(bpf_sock_addr_t* ctx, struct bpf_map_def* connection_policy_map)
 {
     connection_tuple_t tuple_key = {0};
-    connection_tuple_t* verdict = NULL;
+    connection_tuple_t* verdict = NULL; 
 
-    tuple_key.dst_ip.ipv4 = ctx->user_ip4;
+    tuple_key.dst_ip = ctx->user_ip4;
     tuple_key.dst_port = ctx->user_port;
 
     verdict = bpf_map_lookup_elem(connection_policy_map, &tuple_key);
 
     if (verdict == NULL){
-        bpf_printk("No redirect for %x", ntohl(tuple_key.dst_ip.ipv4));
+        bpf_printk("No redirect for %x", ntohl(tuple_key.dst_ip));
         return BPF_SOCK_ADDR_VERDICT_PROCEED;
     }
 
-    bpf_printk("Connnection to %x redirected to %ld", ntohl(tuple_key.dst_ip.ipv4), verdict->new_dst_ip.ipv4);
+    bpf_printk("Connnection to %x redirected to %ld", ntohl(tuple_key.dst_ip), verdict->new_dst_ip);
 
 
-    ctx->user_ip4 = verdict->new_dst_ip.ipv4;
+    ctx->user_ip4 = verdict->new_dst_ip;
     ctx->user_port = verdict->new_dst_port;
 
     return BPF_SOCK_ADDR_VERDICT_PROCEED;
@@ -50,7 +50,7 @@ authorize_v4(bpf_sock_addr_t* ctx, struct bpf_map_def* connection_policy_map)
 
 SEC("cgroup/connect4")
 int
-authorize_connect4(bpf_sock_addr_t* ctx)
+redirect(bpf_sock_addr_t* ctx)
 {
     return authorize_v4(ctx, &egress_connection_policy_map);
 }
