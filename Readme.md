@@ -30,3 +30,7 @@ Needs [WDK installed](https://learn.microsoft.com/en-us/windows-hardware/drivers
 #from admin prompt
 ./trace.ps1
 ```
+
+## todo 
+
+note: not sure why need to comment out `//#include <sys/types.h>  // for size_t` in `eBPF-for-Windows.0.4.0\build\native\include\libbpf\src\libbpf.h` otherwise get duplicate definition with MinGW-w64 gcc compiler for `typedef uint32_t pid_t;`
