@@ -3,9 +3,11 @@ package main
 // #cgo CFLAGS: -IeBPF-for-Windows.0.4.0/build/native/include -IeBPF-for-Windows.0.4.0/build/native/include/libbpf/include/ -w
 // #cgo LDFLAGS: -L${SRCDIR}/eBPF-for-Windows.0.4.0/build/native/bin -lEbpfApi
 // #include <stdlib.h>
+// #include <stdint.h>
 // #include "sal.h"
 // #include "bpf/bpf.h"
 // #include "bpf/libbpf.h"
+// #include "ebpf_api.h"
 // #include "linux/types.h"
 // #include "ebpf/socket_headers.h"
 import "C"
@@ -13,23 +15,38 @@ import (
 	"unsafe"
 )
 
-func getProgramFD() C.int {
+func getProgramFD(programName string) C.int {
 	// the name is the same as the function defined as attach point with SEC("cgroup/connect4")
-	objName := C.CString("redirect")
+	objName := C.CString(programName)
 	fd := C.bpf_obj_get(objName)
 	C.free(unsafe.Pointer(objName))
 	return fd
 }
 
-func getbpfobject() *C.struct_bpf_object {
-	objName := C.CString("cgroup_sock_addr.o")
+func getbpfobject(file string) *C.struct_bpf_object {
+	objName := C.CString(file)
 	bpfObj := C.bpf_object__open(objName)
 	C.free(unsafe.Pointer(objName))
 	return bpfObj
 }
 
-func getmap(object *C.struct_bpf_object) *C.struct_bpf_map {
-	objName := C.CString("egress_connection_policy_map")
+func loadbfp(object *C.struct_bpf_object) int {
+	return int(C.bpf_object__load(object))
+}
+
+func attachbfpProgram(prog *C.struct_bpf_program) *C.struct_bpf_link {
+	return C.bpf_program__attach(prog)
+}
+
+func getProgram(obj *C.struct_bpf_object, name string) *C.struct_bpf_program {
+	objName := C.CString(name)
+	program := C.bpf_object__find_program_by_name(obj, objName)
+	C.free(unsafe.Pointer(objName))
+	return program
+}
+
+func getmap(object *C.struct_bpf_object, name string) *C.struct_bpf_map {
+	objName := C.CString(name)
 	redirectMap := C.bpf_object__find_map_by_name(object, objName)
 	C.free(unsafe.Pointer(objName))
 	return redirectMap
@@ -40,8 +57,8 @@ func getmapFD(object *C.struct_bpf_map) C.int {
 	return fd
 }
 
-func getmapFDBybpfObject(object *C.struct_bpf_object) C.int {
-	objName := C.CString("egress_connection_policy_map")
+func getmapFDBybpfObject(object *C.struct_bpf_object, mapName string) C.int {
+	objName := C.CString(mapName)
 	fd := C.bpf_object__find_map_fd_by_name(object, objName)
 	C.free(unsafe.Pointer(objName))
 	return fd
@@ -52,7 +69,12 @@ func getMapName(object *C.struct_bpf_map) string {
 	return C.GoString(s)
 }
 
-func updateMap(fd C.int, key *C.struct_connection, value *C.struct_connection, flags C.ulonglong) int {
+func updateMap(fd C.int, key unsafe.Pointer, value unsafe.Pointer, flags C.ulonglong) int {
 
-	return int(C.bpf_map_update_elem(fd, unsafe.Pointer(key), unsafe.Pointer(value), flags))
+	return int(C.bpf_map_update_elem(fd, key, value, flags))
+}
+
+func getMapElem(fd C.int, key unsafe.Pointer, value unsafe.Pointer) int {
+
+	return int(C.bpf_map_lookup_elem(fd, key, value))
 }

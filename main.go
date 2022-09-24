@@ -5,56 +5,56 @@ import "C"
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"os/signal"
-	"regexp"
 	"syscall"
+	"unsafe"
 )
 
 func main() {
 	var ebpf = flag.String("ebpf", "cgroup_sock_addr.o", "ebpf program to install")
 	flag.Parse()
 
-	cmd := exec.Command("netsh", "ebpf", "add", "program", *ebpf)
-	out, err := cmd.CombinedOutput()
-	fmt.Printf("%q\n", string(out))
-	if err != nil {
-		log.Fatalf("unable to run command %v", err)
-	}
-	re := regexp.MustCompile(`\d+`)
-	id := re.FindAllString(string(out), -1)
-	fmt.Printf("id: %s\n", id)
-
-	v := getProgramFD()
-	fmt.Printf("program: %d\n", v)
-
-	o := getbpfobject()
+	o := getbpfobject(*ebpf)
 	fmt.Printf("object: %s\n", o)
 
-	m := getmap(o)
-	fmt.Printf("map: %s\n", m)
+	// we don't pin it so it doesn't stay loaded
+	s := loadbfp(o)
+	fmt.Printf("loaded: %d\n", s)
 
-	mapFd := getmapFD(m)
+	// the name is the same as the function defined as attach point with SEC("cgroup/connect4")
+	p := getProgram(o, "redirect")
+	fmt.Printf("program: %v\n", p)
+
+	l := attachbfpProgram(p)
+	fmt.Printf("link: %v\n", l)
+
+	polMap := getmap(o, "egress_connection_policy_map")
+	fmt.Printf("map: %s\n", polMap)
+
+	mapFd := getmapFD(polMap)
 	fmt.Printf("map id: %d\n", mapFd)
 
-	mapfd2 := getmapFDBybpfObject(o)
+	mapfd2 := getmapFDBybpfObject(o, "egress_connection_policy_map")
 	fmt.Printf("map id2: %d\n", mapfd2)
 
-	name := getMapName(m)
+	name := getMapName(polMap)
 	fmt.Printf("map name: %s\n", name)
 
 	ip := newIP()
-	mapupdate := updateMap(mapFd, &ip, &ip, 0)
-	fmt.Printf("updatemap: %d", mapupdate)
+	ipValue := newIP()
+	ipValue.newip = 12
+	mapupdate := updateMap(mapFd, unsafe.Pointer(ip), unsafe.Pointer(ipValue), 0)
+	fmt.Printf("updatemap: %d\n", mapupdate)
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
 	fmt.Println("press ctrl+c to continue...")
 	<-done
 
-	cmd = exec.Command("netsh", "ebpf", "delete", "program", id[0])
-	out, _ = cmd.CombinedOutput()
-	fmt.Printf("%q", out)
+	v2 := ips{}
+	r := getMapElem(mapFd, unsafe.Pointer(ip), unsafe.Pointer(&v2))
+	fmt.Printf("return value: %d. getmap el: %v\n", r, v2)
+
+	//TODO clean everything up (link)
 }
