@@ -13,7 +13,5 @@ typedef struct _connection_tuple
 {
     unsigned int dst_ip;
     unsigned short dst_port;
-    unsigned int new_dst_ip;
-    unsigned short new_dst_port;
 } connection_tuple_t;
 

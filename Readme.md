@@ -13,6 +13,11 @@ Requires:
 
 ```powershell
 #from admin prompt
+
+# make sure services are running
+./setup-box.ps1
+
+# gen the ELF file for the ebpf
 ./gen-ebpf.ps1
 ```
 

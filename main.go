@@ -5,6 +5,7 @@ import "C"
 import (
 	"flag"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	var ebpf = flag.String("ebpf", "cgroup_sock_addr.o", "ebpf program to install")
+	var addressToBlock = flag.String("addr", "18.207.88.57", "address to block")
 	flag.Parse()
 
 	o := getbpfobject(*ebpf)
@@ -41,11 +43,12 @@ func main() {
 	name := getMapName(polMap)
 	fmt.Printf("map name: %s\n", name)
 
-	ip := newIP()
-	ipValue := newIP()
-	ipValue.newip = 12
-	mapupdate := updateMap(mapFd, unsafe.Pointer(ip), unsafe.Pointer(ipValue), 0)
-	fmt.Printf("updatemap: %d\n", mapupdate)
+	ipToBlock := net.ParseIP(*addressToBlock)
+	ip := newIP(ipToBlock)
+	fmt.Printf("ip in unsigned int: %d\n", ip.dstip)
+	ipp := unsafe.Pointer(ip)
+	mapupdate := updateMap(mapFd, ipp, ipp, 0)
+	fmt.Printf("updatemap with ip %s result: %d\n", ipToBlock.String(), mapupdate)
 
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM)
@@ -54,7 +57,10 @@ func main() {
 
 	v2 := ips{}
 	r := getMapElem(mapFd, unsafe.Pointer(ip), unsafe.Pointer(&v2))
+
+	ipstored := int2ip(v2.dstip)
 	fmt.Printf("return value: %d. getmap el: %v\n", r, v2)
+	fmt.Printf("return ip is: %s:%v\n", ipstored.String(), v2.dstport)
 
 	//TODO clean everything up (link)
 }

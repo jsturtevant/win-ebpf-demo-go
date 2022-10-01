@@ -20,26 +20,23 @@ authorize_v4(bpf_sock_addr_t* ctx, struct bpf_map_def* connection_policy_map)
     connection_tuple_t tuple_key = {0};
     connection_tuple_t* verdict = NULL; 
 
-    tuple_key.dst_ip = 1;
-    tuple_key.dst_port = 0;
-    tuple_key.new_dst_ip = 0;
-    tuple_key.new_dst_ip = 0;
+    tuple_key.dst_ip = ntohl(ctx->user_ip4);
+    // tuple_key.dst_port = ctx->user_port;
+
+    bpf_printk("Connnection to from %u to %u on %ld",ntohl(ctx->msg_src_ip4), ntohl(tuple_key.dst_ip), ctx->interface_luid);
+
 
     // bpf_map_update_elem(connection_policy_map, &tuple_key, &tuple_key, 0);
     verdict = bpf_map_lookup_elem(connection_policy_map, &tuple_key);
     
     if (verdict == NULL){
-        bpf_printk("No redirect for %x", ntohl(tuple_key.dst_ip));
+        bpf_printk("No rule for %u, %d", ntohl(tuple_key.dst_ip), tuple_key.dst_port);
         return BPF_SOCK_ADDR_VERDICT_PROCEED;
     }
 
-    bpf_printk("Connnection to %x redirected to %ld", ntohl(tuple_key.dst_ip), verdict->new_dst_ip);
+    bpf_printk("Blocking %u blocked on port %u", ntohl(tuple_key.dst_ip), verdict->dst_port);
 
-
-    ctx->user_ip4 = verdict->new_dst_ip;
-    ctx->user_port = verdict->new_dst_port;
-
-    return BPF_SOCK_ADDR_VERDICT_PROCEED;
+    return BPF_SOCK_ADDR_VERDICT_REJECT;
 }
 
 
